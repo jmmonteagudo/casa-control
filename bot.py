@@ -177,8 +177,12 @@ Return ONLY valid JSON (no markdown) with:
 # ── Supabase helpers ──────────────────────────────────────────────────────────
 
 def resolve_user_id(telegram_id: int) -> Optional[str]:
-    result = supabase.table("users").select("id").eq("telegram_id", telegram_id).maybe_single().execute()
-    return result.data["id"] if result.data else None
+    try:
+        result = supabase.table("users").select("id").eq("telegram_id", telegram_id).maybe_single().execute()
+        return result.data["id"] if result.data else None
+    except Exception as e:
+        logger.warning("Could not resolve user_id for telegram_id=%s: %s", telegram_id, e)
+        return None
 
 
 def save_expense(data: dict, user_id: Optional[str], source: str = "telegram") -> dict:
