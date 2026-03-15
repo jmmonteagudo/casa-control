@@ -6,10 +6,15 @@
   },
   "steps": {
     "install": {
+      "inputs": [{ "local": "bot" }],
       "commands": ["pip install -r bot/requirements.txt"]
     }
   },
   "deploy": {
+    "inputs": [
+      { "step": "install" },
+      { "local": "bot" }
+    ],
     "startCommand": "cd bot && python bot.py"
   }
 }
