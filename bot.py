@@ -249,7 +249,10 @@ def build_edit_keyboard(expense_id: str) -> InlineKeyboardMarkup:
 def is_allowed(update: Update) -> bool:
     if not ALLOWED_CHAT_IDS:
         return True
-    return update.effective_chat.id in ALLOWED_CHAT_IDS
+    return (
+        update.effective_chat.id in ALLOWED_CHAT_IDS
+        or update.effective_user.id in ALLOWED_CHAT_IDS
+    )
 
 
 def get_message(update: Update):
