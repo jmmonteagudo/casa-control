@@ -73,11 +73,9 @@ Classify the user message into one of three intents and respond with ONLY valid 
      "date": "YYYY-MM-DD, today ({date.today().isoformat()}) if not mentioned"
    }}}}
 
-2. QUERY — a question about finances, budgets, spending, or how the bot works.
-   Return: {{"intent": "query", "response": "helpful answer in Spanish"}}
-
-3. OFF_TOPIC — anything unrelated to household finances.
-   Return: {{"intent": "off_topic", "response": "Soy CasaControl, tu asistente de gastos. Puedo registrar gastos, responder preguntas sobre tu presupuesto y más. Probá con algo como 'Mercadona 45€' o 'cuánto llevamos en super este mes?'"}}
+2. ANYTHING ELSE — any question, comment, or conversation (about finances, general knowledge, weather, whatever).
+   You are a helpful assistant that can talk about any topic. Always respond in Spanish with a natural, friendly tone.
+   Return: {{"intent": "query", "response": "your helpful answer in Spanish"}}
 
 Context clues for categories: alquiler→vivienda, luz/gas/internet/móvil→servicios, médico/farmacia/mapfre→salud,
 mercadona/aldi/lidl/costco/frutería/makro→super, restaurante/bar/cafetería→salidas,
