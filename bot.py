@@ -552,6 +552,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
 
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global error handler — notify the user instead of failing silently."""
+    logger.exception("Unhandled exception: %s", context.error)
+    if update and isinstance(update, Update) and update.effective_chat:
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"⚠️ Error interno: {context.error}",
+            )
+        except Exception:
+            logger.exception("Failed to send error message to chat")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -570,6 +583,7 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_error_handler(error_handler)
 
     logger.info("CasaControl bot starting…")
     logger.info("ALLOWED_CHAT_IDS = %s", ALLOWED_CHAT_IDS)
