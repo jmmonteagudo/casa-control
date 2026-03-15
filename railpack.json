@@ -1,5 +1,9 @@
 {
   "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.13"
+  },
   "steps": {
     "install": {
       "commands": ["pip install -r bot/requirements.txt"]
