@@ -4,6 +4,10 @@ Processes photos (tickets), voice notes, and text messages from the family group
 Extracts expenses via Groq API and stores them in Supabase.
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import re
 import logging
 from datetime import date, datetime
