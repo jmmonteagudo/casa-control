@@ -339,14 +339,27 @@ async def cmd_presupuesto(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Process a free-text expense message, or a pending amount correction."""
+    logger.info(
+        "handle_text TRIGGERED — chat_id=%s, user_id=%s, text=%r",
+        update.effective_chat.id,
+        update.effective_user.id if update.effective_user else None,
+        (update.message or update.edited_message or {}).text if (update.message or update.edited_message) else None,
+    )
     if not is_allowed(update):
+        logger.warning(
+            "handle_text BLOCKED by is_allowed — chat_id=%s not in ALLOWED_CHAT_IDS=%s",
+            update.effective_chat.id,
+            ALLOWED_CHAT_IDS,
+        )
         return
     msg = get_message(update)
     if not msg:
+        logger.warning("handle_text — no message object found")
         return
 
     text = msg.text.strip() if msg.text else ""
     if not text or text.startswith("/"):
+        logger.info("handle_text — empty or command text, skipping")
         return
 
     # Handle pending amount correction from inline keyboard
@@ -521,6 +534,11 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     logger.info("CasaControl bot starting…")
+    logger.info("ALLOWED_CHAT_IDS = %s", ALLOWED_CHAT_IDS)
+    logger.info(
+        "Registered handlers: %s",
+        [(type(h).__name__, getattr(h, 'callback', None).__name__ if hasattr(getattr(h, 'callback', None), '__name__') else str(h)) for h in app.handlers.get(0, [])],
+    )
     app.run_polling(drop_pending_updates=True)
 
 
