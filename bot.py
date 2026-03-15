@@ -34,7 +34,7 @@ logging.getLogger("telegram.ext").setLevel(logging.DEBUG)
 
 # ── Environment variables ─────────────────────────────────────────────────────
 TELEGRAM_TOKEN    = os.environ["TELEGRAM_TOKEN"]
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+GOOGLE_API_KEY    = os.environ["GOOGLE_API_KEY"]
 SUPABASE_URL      = os.environ["SUPABASE_URL"]
 SUPABASE_KEY      = os.environ["SUPABASE_SERVICE_KEY"]
 ALLOWED_CHAT_IDS  = set(
@@ -64,30 +64,34 @@ CATEGORY_LABELS = {
     "educacion":  "📚 Educación",
 }
 
-# ── Claude helpers ────────────────────────────────────────────────────────────
-CLAUDE_MODEL   = "claude-sonnet-4-20250514"
-CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
-CLAUDE_HEADERS = {
-    "x-api-key": ANTHROPIC_API_KEY,
-    "anthropic-version": "2023-06-01",
-    "content-type": "application/json",
-}
+# ── Gemini helpers ────────────────────────────────────────────────────────────
+GEMINI_MODEL   = "gemini-2.0-flash"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 
-async def call_claude(messages: list, system: str, max_tokens: int = 1024) -> str:
+async def call_llm(user_content, system: str, max_tokens: int = 1024) -> str:
+    """Call Gemini API. user_content can be a string or a list of parts."""
+    if isinstance(user_content, str):
+        parts = [{"text": user_content}]
+    else:
+        parts = user_content
+
     payload = {
-        "model": CLAUDE_MODEL,
-        "max_tokens": max_tokens,
-        "system": system,
-        "messages": messages,
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"maxOutputTokens": max_tokens},
     }
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(CLAUDE_API_URL, headers=CLAUDE_HEADERS, json=payload)
+        r = await client.post(
+            GEMINI_API_URL,
+            params={"key": GOOGLE_API_KEY},
+            json=payload,
+        )
         if r.status_code != 200:
-            logger.error("Claude API error %s: %s", r.status_code, r.text)
+            logger.error("Gemini API error %s: %s", r.status_code, r.text)
         r.raise_for_status()
         data = r.json()
-        return data["content"][0]["text"]
+        return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
 async def extract_expense_from_text(text: str) -> dict:
@@ -104,17 +108,14 @@ Context clues: alquiler→vivienda, luz/gas/internet/móvil→servicios, médico
 mercadona/aldi/lidl/costco/frutería/makro→super, restaurante/bar/cafetería→salidas,
 taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ropa."""
 
-    response = await call_claude(
-        messages=[{"role": "user", "content": text}],
-        system=system,
-    )
+    response = await call_llm(text, system=system)
     try:
         return json.loads(response)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
             return json.loads(match.group())
-        raise ValueError(f"Claude returned non-JSON: {response}")
+        raise ValueError(f"LLM returned non-JSON: {response}")
 
 
 async def extract_expense_from_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
@@ -132,26 +133,18 @@ Return ONLY valid JSON (no markdown) with:
   date           (YYYY-MM-DD from the ticket, or today {date.today().isoformat()} if not visible)
   items          (array of {{name, quantity, unit_price, total_price}} — line items if legible, else [])"""
 
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": mime_type, "data": b64},
-                },
-                {"type": "text", "text": "Extrae los datos de este ticket de compra."},
-            ],
-        }
+    parts = [
+        {"inline_data": {"mime_type": mime_type, "data": b64}},
+        {"text": "Extrae los datos de este ticket de compra."},
     ]
-    response = await call_claude(messages=messages, system=system, max_tokens=2048)
+    response = await call_llm(parts, system=system, max_tokens=2048)
     try:
         return json.loads(response)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
             return json.loads(match.group())
-        raise ValueError(f"Claude returned non-JSON: {response}")
+        raise ValueError(f"LLM returned non-JSON: {response}")
 
 
 # ── Supabase helpers ──────────────────────────────────────────────────────────
