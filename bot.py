@@ -34,7 +34,7 @@ logging.getLogger("telegram.ext").setLevel(logging.DEBUG)
 
 # ── Environment variables ─────────────────────────────────────────────────────
 TELEGRAM_TOKEN    = os.environ["TELEGRAM_TOKEN"]
-GOOGLE_API_KEY    = os.environ["GOOGLE_API_KEY"]
+GROQ_API_KEY      = os.environ["GROQ_API_KEY"]
 SUPABASE_URL      = os.environ["SUPABASE_URL"]
 SUPABASE_KEY      = os.environ["SUPABASE_SERVICE_KEY"]
 ALLOWED_CHAT_IDS  = set(
@@ -64,34 +64,34 @@ CATEGORY_LABELS = {
     "educacion":  "📚 Educación",
 }
 
-# ── Gemini helpers ────────────────────────────────────────────────────────────
-GEMINI_MODEL   = "gemini-2.0-flash-lite"
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+# ── Groq helpers ─────────────────────────────────────────────────────────────
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
-async def call_llm(user_content, system: str, max_tokens: int = 1024) -> str:
-    """Call Gemini API. user_content can be a string or a list of parts."""
-    if isinstance(user_content, str):
-        parts = [{"text": user_content}]
-    else:
-        parts = user_content
-
+async def call_llm(user_content: str, system: str, max_tokens: int = 1024) -> str:
     payload = {
-        "system_instruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"maxOutputTokens": max_tokens},
+        "model": GROQ_MODEL,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ],
     }
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
-            GEMINI_API_URL,
-            params={"key": GOOGLE_API_KEY},
+            GROQ_API_URL,
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
             json=payload,
         )
         if r.status_code != 200:
-            logger.error("Gemini API error %s: %s", r.status_code, r.text)
+            logger.error("Groq API error %s: %s", r.status_code, r.text)
         r.raise_for_status()
         data = r.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        return data["choices"][0]["message"]["content"]
 
 
 async def extract_expense_from_text(text: str) -> dict:
@@ -133,11 +133,38 @@ Return ONLY valid JSON (no markdown) with:
   date           (YYYY-MM-DD from the ticket, or today {date.today().isoformat()} if not visible)
   items          (array of {{name, quantity, unit_price, total_price}} — line items if legible, else [])"""
 
-    parts = [
-        {"inline_data": {"mime_type": mime_type, "data": b64}},
-        {"text": "Extrae los datos de este ticket de compra."},
-    ]
-    response = await call_llm(parts, system=system, max_tokens=2048)
+    payload = {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "max_tokens": 2048,
+        "messages": [
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{b64}"},
+                    },
+                    {"type": "text", "text": "Extrae los datos de este ticket de compra."},
+                ],
+            },
+        ],
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            GROQ_API_URL,
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        if r.status_code != 200:
+            logger.error("Groq vision API error %s: %s", r.status_code, r.text)
+        r.raise_for_status()
+        data = r.json()
+        response = data["choices"][0]["message"]["content"]
+
     try:
         return json.loads(response)
     except json.JSONDecodeError:
