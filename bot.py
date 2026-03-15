@@ -29,6 +29,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger("casacontrol")
+# Enable DEBUG on telegram.ext to see all incoming updates
+logging.getLogger("telegram.ext").setLevel(logging.DEBUG)
 
 # ── Environment variables ─────────────────────────────────────────────────────
 TELEGRAM_TOKEN    = os.environ["TELEGRAM_TOKEN"]
@@ -258,6 +260,7 @@ def get_message(update: Update):
 # ── Handlers ──────────────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("cmd_start TRIGGERED — chat_id=%s", update.effective_chat.id)
     msg = get_message(update)
     if not msg:
         return
@@ -523,7 +526,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("resumen",     cmd_resumen))
