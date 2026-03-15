@@ -65,7 +65,7 @@ CATEGORY_LABELS = {
 }
 
 # ── Gemini helpers ────────────────────────────────────────────────────────────
-GEMINI_MODEL   = "gemini-2.0-flash"
+GEMINI_MODEL   = "gemini-2.0-flash-lite"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 
