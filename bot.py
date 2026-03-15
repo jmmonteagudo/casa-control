@@ -83,6 +83,8 @@ async def call_claude(messages: list, system: str, max_tokens: int = 1024) -> st
     }
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(CLAUDE_API_URL, headers=CLAUDE_HEADERS, json=payload)
+        if r.status_code != 200:
+            logger.error("Claude API error %s: %s", r.status_code, r.text)
         r.raise_for_status()
         data = r.json()
         return data["content"][0]["text"]
