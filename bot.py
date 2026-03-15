@@ -36,7 +36,7 @@ logger = logging.getLogger("casacontrol")
 TELEGRAM_TOKEN     = os.environ["TELEGRAM_TOKEN"]
 ANTHROPIC_API_KEY  = os.environ["ANTHROPIC_API_KEY"]
 SUPABASE_URL       = os.environ["SUPABASE_URL"]
-SUPABASE_KEY       = os.environ["SUPABASE_SERVICE_KEY"]  # service_role key — bypasses RLS
+SUPABASE_KEY       = os.environ["SUPABASE_SERVICE_KEY"]
 ALLOWED_CHAT_IDS   = set(
     int(x) for x in os.environ.get("ALLOWED_CHAT_IDS", "").split(",") if x.strip()
 )
@@ -44,7 +44,7 @@ ALLOWED_CHAT_IDS   = set(
 # ── Supabase client ───────────────────────────────────────────────────────────
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ── Category slugs (must match budget_categories.slug in DB) ─────────────────
+# ── Category slugs ────────────────────────────────────────────────────────────
 CATEGORY_SLUGS = [
     "vivienda", "super", "salud", "servicios", "vacaciones",
     "salidas", "casa", "transporte", "ocio", "ropa", "educacion",
@@ -61,7 +61,6 @@ CLAUDE_HEADERS = {
 
 
 async def call_claude(messages: list, system: str, max_tokens: int = 1024) -> str:
-    """Generic async wrapper for the Claude messages endpoint."""
     payload = {
         "model": CLAUDE_MODEL,
         "max_tokens": max_tokens,
@@ -76,10 +75,6 @@ async def call_claude(messages: list, system: str, max_tokens: int = 1024) -> st
 
 
 async def extract_expense_from_text(text: str) -> dict:
-    """
-    Ask Claude to parse a free-text expense description.
-    Returns a dict with keys: description, amount_eur, category_slug, store, payment_method, date.
-    """
     system = f"""You are the expense parser for CasaControl, a family budget app for Martin and Romina in Madrid.
 Extract structured expense data from the user message.
 Return ONLY valid JSON (no markdown, no extra text) with these fields:
@@ -100,7 +95,6 @@ taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ro
     try:
         return json.loads(response)
     except json.JSONDecodeError:
-        # Attempt to extract JSON from a wrapped response
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
             return json.loads(match.group())
@@ -108,10 +102,6 @@ taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ro
 
 
 async def extract_expense_from_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
-    """
-    Send a ticket photo to Claude Vision and extract structured expense data.
-    Returns same dict shape as extract_expense_from_text.
-    """
     import base64
     b64 = base64.standard_b64encode(image_bytes).decode()
 
@@ -148,44 +138,14 @@ Return ONLY valid JSON (no markdown) with:
         raise ValueError(f"Claude returned non-JSON: {response}")
 
 
-async def transcribe_voice(voice_bytes: bytes) -> str:
-    """
-    Transcribe a voice note using Claude (send as base64 audio).
-    Falls back to asking the user to retype if transcription is unclear.
-    """
-    import base64
-    b64 = base64.standard_b64encode(voice_bytes).decode()
-
-    system = """You are a voice transcription assistant for a Spanish-speaking family in Madrid.
-Transcribe the audio exactly. Return ONLY the transcribed text, nothing else."""
-
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "document",
-                    "source": {"type": "base64", "media_type": "audio/ogg", "data": b64},
-                },
-                {"type": "text", "text": "Transcribe este audio."},
-            ],
-        }
-    ]
-    # Claude doesn't support raw audio yet — use speech-to-text workaround via file content
-    # For now we return a prompt asking the user to confirm manually
-    return ""
-
-
 # ── Supabase helpers ──────────────────────────────────────────────────────────
 
 def resolve_user_id(telegram_id: int) -> Optional[str]:
-    """Return the Supabase user uuid for a given Telegram user id, or None."""
     result = supabase.table("users").select("id").eq("telegram_id", telegram_id).maybe_single().execute()
     return result.data["id"] if result.data else None
 
 
 def save_expense(data: dict, user_id: Optional[str], source: str = "telegram") -> dict:
-    """Insert an expense row and return the created record."""
     row = {
         "date":           data.get("date") or date.today().isoformat(),
         "description":    data.get("description", "Gasto sin descripción"),
@@ -202,7 +162,6 @@ def save_expense(data: dict, user_id: Optional[str], source: str = "telegram") -
 
 def save_ticket(data: dict, image_url: str, user_id: Optional[str],
                 telegram_msg_id: int, telegram_chat_id: int) -> dict:
-    """Insert a ticket row and its line items. Returns the ticket record."""
     ticket_row = {
         "date":             data.get("date") or date.today().isoformat(),
         "store":            data.get("store"),
@@ -220,11 +179,11 @@ def save_ticket(data: dict, image_url: str, user_id: Optional[str],
     if items:
         item_rows = [
             {
-                "ticket_id":   ticket["id"],
-                "name":        i.get("name", "Artículo"),
-                "quantity":    i.get("quantity", 1),
-                "unit_price":  i.get("unit_price"),
-                "total_price": i.get("total_price"),
+                "ticket_id":     ticket["id"],
+                "name":          i.get("name", "Artículo"),
+                "quantity":      i.get("quantity", 1),
+                "unit_price":    i.get("unit_price"),
+                "total_price":   i.get("total_price"),
                 "category_slug": data.get("category_slug", "super"),
             }
             for i in items
@@ -235,7 +194,6 @@ def save_ticket(data: dict, image_url: str, user_id: Optional[str],
 
 
 def upload_photo_to_storage(image_bytes: bytes, filename: str) -> str:
-    """Upload photo to Supabase Storage bucket 'tickets'. Returns public URL."""
     path = f"tickets/{filename}"
     supabase.storage.from_("tickets").upload(
         path, image_bytes, {"content-type": "image/jpeg"}
@@ -277,7 +235,6 @@ def format_confirmation(data: dict, expense_id: str) -> str:
 
 
 def build_edit_keyboard(expense_id: str) -> InlineKeyboardMarkup:
-    """Inline keyboard shown after a confirmed expense."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✏️ Editar categoría", callback_data=f"editcat:{expense_id}"),
@@ -289,104 +246,103 @@ def build_edit_keyboard(expense_id: str) -> InlineKeyboardMarkup:
 
 # ── Access guard ──────────────────────────────────────────────────────────────
 def is_allowed(update: Update) -> bool:
-    """Only process messages from the authorised chat(s)."""
     if not ALLOWED_CHAT_IDS:
-        return True  # No restriction configured — allow all (use only during setup)
-    chat_id = update.effective_chat.id
-    return chat_id in ALLOWED_CHAT_IDS
+        return True
+    return update.effective_chat.id in ALLOWED_CHAT_IDS
 
 
 # ── Handlers ──────────────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "👋 *CasaControl Bot* activo\\.\n\n"
+        "👋 *CasaControl Bot* activo\n\n"
         "Podés enviarme:\n"
         "📸 Foto de un ticket → lo registro automáticamente\n"
-        "💬 Texto libre → _\"Mercadona 45€\"_ o _\"Alquiler pagado\"_\n"
-        "🎤 Audio → transcripción y registro \\(próximamente\\)\n\n"
+        "💬 Texto libre → \"Mercadona 45€\" o \"Alquiler pagado\"\n"
+        "🎤 Audio → próximamente\n\n"
         "Comandos:\n"
         "/resumen — gastos del mes actual\n"
-        "/presupuesto — estado vs\\. presupuesto",
-        parse_mode="MarkdownV2",
+        "/presupuesto — estado vs. presupuesto",
+        parse_mode="Markdown",
     )
 
 
 async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed(update):
         return
-
     today = date.today()
     month_start = today.replace(day=1).isoformat()
-
     result = (
         supabase.table("expenses")
         .select("category_slug, amount_eur")
         .gte("date", month_start)
         .execute()
     )
-
     totals: dict[str, float] = {}
     for row in result.data:
         slug = row["category_slug"] or "super"
         totals[slug] = totals.get(slug, 0) + float(row["amount_eur"])
-
     grand_total = sum(totals.values())
     lines = [f"📊 *Gastos {today.strftime('%B %Y')}*\n"]
     for slug, label in CATEGORY_LABELS.items():
         if slug in totals:
             lines.append(f"{label}: *€{totals[slug]:.2f}*")
     lines.append(f"\n💶 *Total: €{grand_total:.2f}*")
-
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 async def cmd_presupuesto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed(update):
         return
-
     today = date.today()
     month_start = today.replace(day=1).isoformat()
-
-    cats_result   = supabase.table("budget_categories").select("slug, label, budget_eur").execute()
-    spent_result  = (
+    cats_result  = supabase.table("budget_categories").select("slug, label, budget_eur").execute()
+    spent_result = (
         supabase.table("expenses")
         .select("category_slug, amount_eur")
         .gte("date", month_start)
         .execute()
     )
-
     spent: dict[str, float] = {}
     for row in spent_result.data:
         slug = row["category_slug"] or "super"
         spent[slug] = spent.get(slug, 0) + float(row["amount_eur"])
-
     lines = [f"💰 *Presupuesto {today.strftime('%B %Y')}*\n"]
     total_budget = 0.0
     total_spent  = 0.0
-
     for cat in sorted(cats_result.data, key=lambda c: c["slug"]):
-        slug    = cat["slug"]
-        budget  = float(cat["budget_eur"])
-        s       = spent.get(slug, 0.0)
-        pct     = (s / budget * 100) if budget else 0
-        bar     = "🔴" if pct >= 90 else "🟡" if pct >= 70 else "🟢"
-        label   = CATEGORY_LABELS.get(slug, cat["label"])
+        slug   = cat["slug"]
+        budget = float(cat["budget_eur"])
+        s      = spent.get(slug, 0.0)
+        pct    = (s / budget * 100) if budget else 0
+        bar    = "🔴" if pct >= 90 else "🟡" if pct >= 70 else "🟢"
+        label  = CATEGORY_LABELS.get(slug, cat["label"])
         lines.append(f"{bar} {label}: €{s:.0f} / €{budget:.0f} ({pct:.0f}%)")
         total_budget += budget
         total_spent  += s
-
     lines.append(f"\n💶 *Total: €{total_spent:.0f} / €{total_budget:.0f}*")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Process a free-text expense message."""
+    """Process a free-text expense message, or a pending amount correction."""
     if not is_allowed(update):
         return
 
     text = update.message.text.strip()
     if not text or text.startswith("/"):
+        return
+
+    # Handle pending amount correction from inline keyboard
+    expense_id = context.user_data.pop("awaiting_amount_for", None)
+    if expense_id:
+        clean = text.replace(",", ".")
+        try:
+            amount = float(re.sub(r"[^\d.]", "", clean))
+            supabase.table("expenses").update({"amount_eur": amount}).eq("id", expense_id).execute()
+            await update.message.reply_text(f"✅ Importe actualizado a €{amount:.2f}")
+        except ValueError:
+            await update.message.reply_text("⚠️ No entendí el importe. Ingresá solo el número, ej: *45.30*", parse_mode="Markdown")
         return
 
     msg = await update.message.reply_text("⏳ Procesando…")
@@ -426,8 +382,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     msg = await update.message.reply_text("📸 Leyendo ticket…")
-
-    # Download the highest-resolution photo variant
     photo = update.message.photo[-1]
     tg_file = await photo.get_file()
 
@@ -443,7 +397,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await msg.edit_text(f"⚠️ No pude leer el ticket: {e}")
         return
 
-    # Upload photo to Supabase Storage
     filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{photo.file_unique_id}.jpg"
     try:
         image_url = upload_photo_to_storage(image_bytes, filename)
@@ -461,9 +414,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             telegram_msg_id=update.message.message_id,
             telegram_chat_id=update.effective_chat.id,
         )
-        # Also create the rolled-up expense row
         expense = save_expense(data, user_id=user_id, source="telegram")
-        # Link ticket to expense
         supabase.table("expenses").update({"ticket_id": ticket["id"]}).eq("id", expense["id"]).execute()
     except Exception as e:
         logger.exception("Error saving ticket/expense")
@@ -486,15 +437,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Voice notes: inform the user that transcription is coming soon."""
+    """Voice notes: placeholder until audio transcription is available."""
     if not is_allowed(update):
         return
-
     await update.message.reply_text(
-        "🎤 Recibí tu audio\\. Por ahora no proceso voz automáticamente\\.\n\n"
-        "Podés escribir el gasto en texto, por ejemplo:\n"
-        "_\"Frutería 18€ efectivo\"_",
-        parse_mode="MarkdownV2",
+        "🎤 Por ahora no proceso voz. Escribí el gasto en texto, ej: _\"Frutería 18€\"_",
+        parse_mode="Markdown",
     )
 
 
@@ -513,7 +461,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.edit_message_text(f"⚠️ Error eliminando: {e}")
 
     elif action == "editcat":
-        # Build a keyboard with all categories for reassignment
         buttons = [
             [InlineKeyboardButton(label, callback_data=f"setcat:{expense_id}:{slug}")]
             for slug, label in CATEGORY_LABELS.items()
@@ -521,8 +468,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_reply_markup(InlineKeyboardMarkup(buttons))
 
     elif action == "setcat":
-        parts = query.data.split(":", 2)
-        _, eid, new_slug = parts
+        _, eid, new_slug = query.data.split(":", 2)
         try:
             supabase.table("expenses").update({"category_slug": new_slug}).eq("id", eid).execute()
             await query.edit_message_text(
@@ -539,38 +485,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
 
 
-async def handle_amount_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """If we're waiting for a corrected amount, process it."""
-    expense_id = context.user_data.pop("awaiting_amount_for", None)
-    if not expense_id:
-        return  # Fall through to normal text handler
-
-    text = update.message.text.strip().replace(",", ".")
-    try:
-        amount = float(re.sub(r"[^\d.]", "", text))
-    except ValueError:
-        await update.message.reply_text("⚠️ No entendí el importe. Ingresá solo el número, ej: *45.30*", parse_mode="Markdown")
-        return
-
-    supabase.table("expenses").update({"amount_eur": amount}).eq("id", expense_id).execute()
-    await update.message.reply_text(f"✅ Importe actualizado a €{amount:.2f}")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(CommandHandler("start",        cmd_start))
-    app.add_handler(CommandHandler("resumen",      cmd_resumen))
-    app.add_handler(CommandHandler("presupuesto",  cmd_presupuesto))
+    app.add_handler(CommandHandler("start",       cmd_start))
+    app.add_handler(CommandHandler("resumen",     cmd_resumen))
+    app.add_handler(CommandHandler("presupuesto", cmd_presupuesto))
     app.add_handler(CallbackQueryHandler(handle_callback))
-
-    # Amount-edit reply must come before the generic text handler
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount_edit), group=0)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text),        group=1)
-    app.add_handler(MessageHandler(filters.PHOTO,                   handle_photo))
-    app.add_handler(MessageHandler(filters.VOICE,                   handle_voice))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     logger.info("CasaControl bot starting…")
     app.run_polling(drop_pending_updates=True)
