@@ -75,7 +75,20 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "❓ Pregunta → \"cuánto llevamos en super?\"\n\n"
         "Comandos:\n"
         "/resumen — gastos del mes actual\n"
-        "/presupuesto — estado vs. presupuesto",
+        "/presupuesto — estado vs. presupuesto\n"
+        "/myid — tu chat\\_id (para Shortcuts iOS)",
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = get_message(update)
+    if not msg:
+        return
+    await msg.reply_text(
+        f"🆔 *Tu info:*\n"
+        f"Chat ID: `{update.effective_chat.id}`\n"
+        f"User ID: `{update.effective_user.id}`",
         parse_mode="Markdown",
     )
 
@@ -496,6 +509,7 @@ def main() -> None:
     )
 
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("presupuesto", cmd_presupuesto))
     app.add_handler(CallbackQueryHandler(handle_callback))
