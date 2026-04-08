@@ -135,10 +135,19 @@ async def cmd_presupuesto(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Process text: classify intent (expense / query / off_topic)."""
+    logger.info(
+        "handle_text triggered — chat_id=%s user_id=%s text=%r",
+        update.effective_chat.id if update.effective_chat else None,
+        update.effective_user.id if update.effective_user else None,
+        (update.message or update.edited_message or {}).text[:80] if (update.message or update.edited_message) else None,
+    )
     if not is_allowed(update):
+        logger.warning("handle_text BLOCKED by is_allowed — chat_id=%s user_id=%s ALLOWED=%s",
+                        update.effective_chat.id, update.effective_user.id, ALLOWED_CHAT_IDS)
         return
     msg = get_message(update)
     if not msg:
+        logger.warning("handle_text: no message object")
         return
 
     text = msg.text.strip() if msg.text else ""
@@ -497,7 +506,8 @@ def main() -> None:
 
     logger.info("CasaControl bot starting…")
     logger.info("ALLOWED_CHAT_IDS = %s", ALLOWED_CHAT_IDS)
-    app.run_polling(drop_pending_updates=True)
+    logger.info("Handlers registered: start, resumen, presupuesto, callback, text, photo, voice")
+    app.run_polling(drop_pending_updates=True, allowed_updates=["message", "callback_query", "edited_message"])
 
 
 if __name__ == "__main__":
