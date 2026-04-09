@@ -10,6 +10,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 ALLOWED_CHAT_IDS = set(
     int(x) for x in os.environ.get("ALLOWED_CHAT_IDS", "").split(",") if x.strip()
 )
+GROUP_CHAT_ID = int(os.environ.get("GROUP_CHAT_ID", "0")) or None
 
 # ── Category slugs ────────────────────────────────────────────────────────────
 CATEGORY_SLUGS = [

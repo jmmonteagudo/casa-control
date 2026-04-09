@@ -23,7 +23,7 @@ from telegram.ext import (
     filters,
 )
 
-from config import TELEGRAM_TOKEN, ALLOWED_CHAT_IDS, CATEGORY_LABELS
+from config import TELEGRAM_TOKEN, ALLOWED_CHAT_IDS, CATEGORY_LABELS, GROUP_CHAT_ID
 from llm import classify_and_process, extract_expense_from_image, transcribe_audio
 from db import (
     supabase, resolve_user_id, save_expense, save_ticket,
@@ -252,6 +252,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     confirmation = format_confirmation(data, expense["id"])
+
+    # Repost to group if this came from shortcut (private chat)
+    if from_shortcut and GROUP_CHAT_ID and update.effective_chat.id != GROUP_CHAT_ID:
+        try:
+            await context.bot.send_message(
+                chat_id=GROUP_CHAT_ID,
+                text=f"📱 *Shortcut*\n{confirmation}",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.warning("Could not repost to group: %s", e)
 
     # If super category, ask for ticket photo
     if data.get("category_slug") == "super":
@@ -538,7 +549,7 @@ def main() -> None:
 
     logger.info("CasaControl bot starting…")
     logger.info("ALLOWED_CHAT_IDS = %s", ALLOWED_CHAT_IDS)
-    logger.info("GoCardless configured: %s", bool(GOCARDLESS_SECRET_ID))
+    logger.info("GROUP_CHAT_ID = %s", GROUP_CHAT_ID)
     app.run_polling(drop_pending_updates=True, allowed_updates=["message", "callback_query", "edited_message"])
 
 
