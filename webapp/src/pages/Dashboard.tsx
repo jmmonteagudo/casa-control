@@ -28,7 +28,15 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [budgets, setBudgets] = useState<BudgetCategory[]>([])
   const [loading, setLoading] = useState(true)
-  const { monthStart, monthEnd, isCurrentMonth, prevMonth, nextMonth, label } = useMonth()
+  const { monthStart, monthEnd, isCurrentMonth, prevMonth, nextMonth, year, month, setYear, setMonth } = useMonth()
+
+  const MONTHS = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ]
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth()
+  const years = Array.from({ length: currentYear - 2022 }, (_, i) => currentYear - i)
 
   useEffect(() => {
     setLoading(true)
@@ -102,20 +110,45 @@ export default function Dashboard() {
       {/* Global gauge with month selector */}
       <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={prevMonth}
-              className="text-slate-400 hover:text-white text-lg font-bold px-2 transition-colors"
+              className="text-slate-400 hover:text-white text-lg font-bold px-1 transition-colors"
             >
               &lt;
             </button>
-            <h2 className="text-lg font-bold text-white capitalize min-w-[180px] text-center">
-              {label}
-            </h2>
+            <select
+              value={month}
+              onChange={e => {
+                const m = parseInt(e.target.value, 10)
+                if (year === currentYear && m > currentMonth) return
+                setMonth(m)
+              }}
+              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm font-bold text-white"
+            >
+              {MONTHS.map((name, i) => (
+                <option key={i} value={i} disabled={year === currentYear && i > currentMonth}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={year}
+              onChange={e => {
+                const y = parseInt(e.target.value, 10)
+                setYear(y)
+                if (y === currentYear && month > currentMonth) setMonth(currentMonth)
+              }}
+              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm font-bold text-white"
+            >
+              {years.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
             <button
               onClick={nextMonth}
               disabled={isCurrentMonth}
-              className="text-slate-400 hover:text-white text-lg font-bold px-2 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+              className="text-slate-400 hover:text-white text-lg font-bold px-1 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
             >
               &gt;
             </button>

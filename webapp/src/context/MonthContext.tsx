@@ -6,6 +6,8 @@ type MonthState = {
   monthStart: string // YYYY-MM-01
   monthEnd: string   // YYYY-MM-DD (last day)
   isCurrentMonth: boolean
+  setYear: (y: number) => void
+  setMonth: (m: number) => void
   prevMonth: () => void
   nextMonth: () => void
   label: string // "diciembre 2023"
@@ -44,7 +46,7 @@ export function MonthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    return { year, month, monthStart, monthEnd, isCurrentMonth, prevMonth, nextMonth, label }
+    return { year, month, monthStart, monthEnd, isCurrentMonth, setYear, setMonth, prevMonth, nextMonth, label }
   }, [year, month])
 
   return <MonthContext.Provider value={value}>{children}</MonthContext.Provider>
