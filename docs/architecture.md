@@ -9,6 +9,12 @@ ENTRADA DE DATOS
 │   ├── Audio de voz → Groq Whisper → transcribe → clasifica gasto
 │   └── Texto libre → Groq (llama-3.3-70b) → interpreta → registra
 │
+├── iOS Shortcut "Gasto" (EN DESARROLLO — automatizar 100%)
+│   ├── Trigger: pago con Apple Pay (Cartera/Wallet)
+│   ├── Objetivo: extraer monto y comercio de la transacción automáticamente
+│   ├── Vía A: POST a Telegram Bot API → bot clasifica y registra
+│   └── Vía B: POST directo a Supabase REST API → insert en expenses
+│
 └── App Web (ordenador / móvil PWA)
     └── Dashboard, edición de gastos y presupuestos
 

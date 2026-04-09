@@ -76,7 +76,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Comandos:\n"
         "/resumen — gastos del mes actual\n"
         "/presupuesto — estado vs. presupuesto\n"
-        "/myid — tu chat\\_id (para Shortcuts iOS)",
+        "/myid — tu chat\\_id (para Shortcuts iOS)\n\n"
+        "Tambien podes enviar un CSV bancario para importar gastos.",
         parse_mode="Markdown",
     )
 
@@ -524,6 +525,11 @@ def main() -> None:
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("presupuesto", cmd_presupuesto))
+
+    # CSV import handler
+    from banking import handle_document
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -532,7 +538,7 @@ def main() -> None:
 
     logger.info("CasaControl bot starting…")
     logger.info("ALLOWED_CHAT_IDS = %s", ALLOWED_CHAT_IDS)
-    logger.info("Handlers registered: start, resumen, presupuesto, callback, text, photo, voice")
+    logger.info("GoCardless configured: %s", bool(GOCARDLESS_SECRET_ID))
     app.run_polling(drop_pending_updates=True, allowed_updates=["message", "callback_query", "edited_message"])
 
 

@@ -148,3 +148,60 @@ async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/ogg") -> 
             logger.error("Groq Whisper error %s: %s", r.status_code, r.text)
         r.raise_for_status()
         return r.json()["text"]
+
+
+async def classify_bank_transactions_batch(transactions: list[dict]) -> list[dict]:
+    """Classify a batch of bank transactions via LLM.
+
+    Input: list of {description: str, amount: float, date: str}
+    Output: list of {description, amount_eur, category_slug, store, payment_method, date}
+    """
+    system = f"""You are CasaControl, a family expense classifier for Martin and Romina in Madrid, Spain.
+Classify each bank transaction into an expense category.
+
+For each transaction, return:
+- description: short, clean description in Spanish (e.g. "Compra Mercadona")
+- amount_eur: the amount (positive number)
+- category_slug: one of: {', '.join(CATEGORY_SLUGS)}
+- store: merchant name, cleaned up (e.g. "MERCADONA S.A." → "Mercadona")
+- payment_method: one of: tarjeta, transferencia, domiciliacion, cajero, bizum, or null
+- date: the transaction date (YYYY-MM-DD)
+
+Context clues: alquiler→vivienda, luz/gas/internet/movil→servicios, medico/farmacia→salud,
+mercadona/aldi/lidl/carrefour→super, restaurante/bar→salidas, taxi/uber/metro→transporte,
+cole/guarderia→educacion, ropa/zapatos→ropa, netflix/spotify→ocio, ikea/leroy merlin→casa.
+
+Respond with ONLY a valid JSON array. No markdown, no extra text."""
+
+    user_content = json.dumps(transactions, ensure_ascii=False)
+    response = await call_llm(user_content, system=system, max_tokens=2048)
+
+    try:
+        parsed = json.loads(response)
+        if isinstance(parsed, list):
+            return parsed
+    except json.JSONDecodeError:
+        match = re.search(r"\[.*\]", response, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+
+    logger.warning("Batch classification failed, falling back to individual")
+    results = []
+    for tx in transactions:
+        try:
+            result = await classify_and_process(f"{tx['description']} {tx['amount']}€")
+            if result.get("intent") == "expense":
+                data = result["data"]
+                data["date"] = tx.get("date", date.today().isoformat())
+                results.append(data)
+        except Exception:
+            logger.warning("Individual classification failed for: %s", tx["description"])
+            results.append({
+                "description": tx["description"],
+                "amount_eur": tx["amount"],
+                "category_slug": "super",
+                "store": tx["description"],
+                "payment_method": None,
+                "date": tx.get("date", date.today().isoformat()),
+            })
+    return results
