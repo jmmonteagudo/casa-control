@@ -79,7 +79,8 @@ Classify the user message into one of three intents and respond with ONLY valid 
 
 Context clues for categories: alquiler→vivienda, luz/gas/internet/móvil→servicios, médico/farmacia/mapfre→salud,
 mercadona/aldi/lidl/costco/frutería/makro→super, restaurante/bar/cafetería→salidas,
-taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ropa."""
+taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ropa.
+If the expense doesn't clearly fit any category, use 'otros'."""
 
     response = await call_llm(text, system=system)
     return _parse_json(response)
@@ -170,6 +171,7 @@ For each transaction, return:
 Context clues: alquiler→vivienda, luz/gas/internet/movil→servicios, medico/farmacia→salud,
 mercadona/aldi/lidl/carrefour→super, restaurante/bar→salidas, taxi/uber/metro→transporte,
 cole/guarderia→educacion, ropa/zapatos→ropa, netflix/spotify→ocio, ikea/leroy merlin→casa.
+If a transaction doesn't clearly fit any category, use 'otros'.
 
 Respond with ONLY a valid JSON array. No markdown, no extra text."""
 
@@ -199,7 +201,7 @@ Respond with ONLY a valid JSON array. No markdown, no extra text."""
             results.append({
                 "description": tx["description"],
                 "amount_eur": tx["amount"],
-                "category_slug": "super",
+                "category_slug": "otros",
                 "store": tx["description"],
                 "payment_method": None,
                 "date": tx.get("date", date.today().isoformat()),

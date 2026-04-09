@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import type { Session } from '@supabase/supabase-js'
+import { MonthProvider } from './context/MonthContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
@@ -38,13 +39,15 @@ export default function App() {
   }
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/gastos" element={<Expenses />} />
-        <Route path="/presupuesto" element={<Budget />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <MonthProvider>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/gastos" element={<Expenses />} />
+          <Route path="/presupuesto" element={<Budget />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+    </MonthProvider>
   )
 }

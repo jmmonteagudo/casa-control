@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Expense } from '../lib/supabase'
+import { useMonth } from '../context/MonthContext'
 import ExpenseList from '../components/ExpenseList'
 
 const CATEGORIES = [
@@ -15,18 +16,27 @@ const CATEGORIES = [
   { slug: 'transporte', label: 'Transporte' },
   { slug: 'ocio', label: 'Ocio/Kids' },
   { slug: 'ropa', label: 'Ropa' },
-  { slug: 'educacion', label: 'Educación' },
+  { slug: 'educacion', label: 'Educacion' },
+  { slug: 'otros', label: 'Otros' },
 ]
 
 export default function Expenses() {
+  const { monthStart, monthEnd } = useMonth()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState(monthStart)
+  const [dateTo, setDateTo] = useState(monthEnd)
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<Expense | null>(null)
   const pageSize = 20
+
+  // Sync filters when month changes in Dashboard
+  useEffect(() => {
+    setDateFrom(monthStart)
+    setDateTo(monthEnd)
+    setPage(0)
+  }, [monthStart, monthEnd])
 
   const fetchExpenses = async () => {
     setLoading(true)
@@ -104,7 +114,7 @@ export default function Expenses() {
           <p className="text-sm text-slate-400">{editing.description}</p>
           <div className="flex gap-3">
             <div>
-              <label className="text-xs text-slate-500">Categoría</label>
+              <label className="text-xs text-slate-500">Categoria</label>
               <select
                 value={editing.category_slug}
                 onChange={e => setEditing({ ...editing, category_slug: e.target.value })}
@@ -158,7 +168,7 @@ export default function Expenses() {
         >
           Anterior
         </button>
-        <span className="text-slate-500 text-sm self-center">Página {page + 1}</span>
+        <span className="text-slate-500 text-sm self-center">Pagina {page + 1}</span>
         <button
           onClick={() => setPage(p => p + 1)}
           disabled={expenses.length < pageSize}

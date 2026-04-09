@@ -14,7 +14,7 @@ ALLOWED_CHAT_IDS = set(
 # ── Category slugs ────────────────────────────────────────────────────────────
 CATEGORY_SLUGS = [
     "vivienda", "super", "salud", "servicios", "vacaciones",
-    "salidas", "casa", "transporte", "ocio", "ropa", "educacion",
+    "salidas", "casa", "transporte", "ocio", "ropa", "educacion", "otros",
 ]
 
 CATEGORY_LABELS = {
@@ -29,6 +29,7 @@ CATEGORY_LABELS = {
     "ocio":       "🎈 Ocio/Kids",
     "ropa":       "👗 Ropa",
     "educacion":  "📚 Educación",
+    "otros":      "📦 Otros",
 }
 
 # ── Groq settings ─────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import type { Expense } from '../lib/supabase'
 const CATEGORY_ICONS: Record<string, string> = {
   vivienda: '🏡', super: '🛒', salud: '🏥', servicios: '💡',
   vacaciones: '✈️', salidas: '🍽️', casa: '🏠', transporte: '🚗',
-  ocio: '🎈', ropa: '👗', educacion: '📚',
+  ocio: '🎈', ropa: '👗', educacion: '📚', otros: '📦',
 }
 
 type Props = {

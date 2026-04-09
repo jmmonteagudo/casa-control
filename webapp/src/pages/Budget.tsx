@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { BudgetCategory } from '../lib/supabase'
+import { useMonth } from '../context/MonthContext'
 
 export default function Budget() {
   const [budgets, setBudgets] = useState<BudgetCategory[]>([])
@@ -8,25 +9,24 @@ export default function Budget() {
   const [loading, setLoading] = useState(true)
   const [editSlug, setEditSlug] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const { monthStart, monthEnd, label } = useMonth()
 
   useEffect(() => {
-    const now = new Date()
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-
+    setLoading(true)
     Promise.all([
       supabase.from('budget_categories').select('*'),
-      supabase.from('expenses').select('category_slug, amount_eur').gte('date', monthStart),
+      supabase.from('expenses').select('category_slug, amount_eur').gte('date', monthStart).lte('date', monthEnd),
     ]).then(([budRes, expRes]) => {
       setBudgets(budRes.data || [])
       const s: Record<string, number> = {}
       for (const row of expRes.data || []) {
-        const slug = row.category_slug || 'super'
+        const slug = row.category_slug || 'otros'
         s[slug] = (s[slug] || 0) + row.amount_eur
       }
       setSpent(s)
       setLoading(false)
     })
-  }, [])
+  }, [monthStart, monthEnd])
 
   const handleSave = async (id: string) => {
     const val = parseFloat(editValue)
@@ -43,17 +43,17 @@ export default function Budget() {
   const ICONS: Record<string, string> = {
     vivienda: '🏡', super: '🛒', salud: '🏥', servicios: '💡',
     vacaciones: '✈️', salidas: '🍽️', casa: '🏠', transporte: '🚗',
-    ocio: '🎈', ropa: '👗', educacion: '📚',
+    ocio: '🎈', ropa: '👗', educacion: '📚', otros: '📦',
   }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold text-white">Presupuestos mensuales</h2>
+      <h2 className="text-lg font-bold text-white capitalize">Presupuestos — {label}</h2>
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-800 text-left">
-              <th className="px-4 py-3 text-xs text-slate-500 font-medium">Categoría</th>
+              <th className="px-4 py-3 text-xs text-slate-500 font-medium">Categoria</th>
               <th className="px-4 py-3 text-xs text-slate-500 font-medium text-right">Gastado</th>
               <th className="px-4 py-3 text-xs text-slate-500 font-medium text-right">Presupuesto</th>
               <th className="px-4 py-3 text-xs text-slate-500 font-medium">Progreso</th>
@@ -78,7 +78,7 @@ export default function Budget() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-medium text-white">€{s.toFixed(0)}</span>
+                      <span className="text-sm font-medium text-white">&euro;{s.toFixed(0)}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {editSlug === b.slug ? (
@@ -103,7 +103,7 @@ export default function Budget() {
                           onClick={() => { setEditSlug(b.slug); setEditValue(String(b.budget_eur)) }}
                           className="text-sm text-slate-400 hover:text-white"
                         >
-                          €{b.budget_eur.toFixed(0)}
+                          &euro;{b.budget_eur.toFixed(0)}
                         </button>
                       )}
                     </td>

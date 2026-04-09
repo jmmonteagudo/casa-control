@@ -10,6 +10,7 @@ const CATEGORY_LABELS: Record<string, { icon: string; label: string }> = {
   ocio:       { icon: '🎈', label: 'Ocio/Kids' },
   ropa:       { icon: '👗', label: 'Ropa' },
   educacion:  { icon: '📚', label: 'Educación' },
+  otros:      { icon: '📦', label: 'Otros' },
 }
 
 type Props = {

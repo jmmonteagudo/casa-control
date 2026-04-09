@@ -27,7 +27,7 @@ def save_expense(data: dict, user_id: Optional[str], source: str = "telegram") -
         "date":           data.get("date") or date.today().isoformat(),
         "description":    data.get("description", "Gasto sin descripción"),
         "amount_eur":     data.get("amount_eur"),
-        "category_slug":  data.get("category_slug", "super"),
+        "category_slug":  data.get("category_slug", "otros"),
         "payment_method": data.get("payment_method"),
         "store":          data.get("store"),
         "source":         source,
