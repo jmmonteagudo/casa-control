@@ -186,6 +186,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await msg.reply_text("👍 Perfecto, gasto registrado sin ticket.")
         return
 
+    # Detect [shortcut] prefix from iOS Shortcut
+    from_shortcut = text.startswith("[shortcut]")
+    if from_shortcut:
+        text = text.removeprefix("[shortcut]").strip()
+
     processing = await msg.reply_text("⏳ Procesando…")
 
     try:
@@ -208,6 +213,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # intent == "expense"
     data = result.get("data", {})
 
+    if from_shortcut:
+        data["payment_method"] = "apple_pay"
+
     if not data.get("amount_eur"):
         await processing.edit_text(
             "❓ No detecté el importe. Probá con algo como:\n_\"Mercadona 45,30€\"_ o _\"Alquiler 1430\"_",
@@ -225,6 +233,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         dup_amt = float(duplicate["amount_eur"])
         dup_store = duplicate.get("store") or "sin tienda"
         context.user_data["pending_expense_data"] = data
+        context.user_data["pending_from_shortcut"] = from_shortcut
         await processing.edit_text(
             f"⚠️ Ya registraste *{dup_store}* €{dup_amt:.2f} hoy.\n¿Querés registrarlo igual o es duplicado?",
             parse_mode="Markdown",
@@ -232,9 +241,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
+    source = "shortcut" if from_shortcut else "telegram"
     user_id = resolve_user_id(update.effective_user.id)
     try:
-        expense = save_expense(data, user_id=user_id, source="telegram")
+        expense = save_expense(data, user_id=user_id, source=source)
     except Exception as e:
         logger.exception("Error saving expense")
         await processing.edit_text(f"⚠️ Error guardando el gasto: {e}")
@@ -448,12 +458,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     elif action == "force_save":
         pending_data = context.user_data.pop("pending_expense_data", None)
+        pending_from_shortcut = context.user_data.pop("pending_from_shortcut", False)
         if not pending_data:
             await query.edit_message_text("⚠️ No hay gasto pendiente.")
             return
+        source = "shortcut" if pending_from_shortcut else "telegram"
         user_id = resolve_user_id(update.effective_user.id)
         try:
-            expense = save_expense(pending_data, user_id=user_id, source="telegram")
+            expense = save_expense(pending_data, user_id=user_id, source=source)
             confirmation = format_confirmation(pending_data, expense["id"])
             if pending_data.get("category_slug") == "super":
                 context.user_data["awaiting_ticket_photo_for"] = expense["id"]
