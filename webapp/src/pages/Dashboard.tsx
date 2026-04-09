@@ -3,25 +3,24 @@ import { supabase } from '../lib/supabase'
 import type { Expense, BudgetCategory } from '../lib/supabase'
 import { useMonth } from '../context/MonthContext'
 import CategoryGauge from '../components/CategoryGauge'
-import ExpenseList from '../components/ExpenseList'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer,
 } from 'recharts'
 
 const CATEGORY_COLORS: Record<string, string> = {
-  vivienda: '#6366f1',   // indigo
-  super: '#10b981',      // emerald
-  salud: '#f43f5e',      // rose
-  servicios: '#f59e0b',  // amber
-  vacaciones: '#06b6d4', // cyan
-  salidas: '#ec4899',    // pink
-  casa: '#8b5cf6',       // violet
-  transporte: '#3b82f6', // blue
-  ocio: '#14b8a6',       // teal
-  ropa: '#d946ef',       // fuchsia
-  educacion: '#f97316',  // orange
-  otros: '#64748b',      // slate
+  vivienda: '#6366f1',
+  super: '#3BB2AC',
+  salud: '#E63944',
+  servicios: '#F8AD55',
+  vacaciones: '#06b6d4',
+  salidas: '#ec4899',
+  casa: '#8b5cf6',
+  transporte: '#3b82f6',
+  ocio: '#14b8a6',
+  ropa: '#d946ef',
+  educacion: '#f97316',
+  otros: '#64748b',
 }
 
 export default function Dashboard() {
@@ -61,7 +60,6 @@ export default function Dashboard() {
     return <p className="text-slate-500 text-center py-12">Cargando dashboard...</p>
   }
 
-  // Compute spent per category
   const spentByCategory: Record<string, number> = {}
   let totalSpent = 0
   for (const exp of expenses) {
@@ -73,7 +71,6 @@ export default function Dashboard() {
   const totalBudget = budgets.reduce((sum, b) => sum + b.budget_eur, 0)
   const totalPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
 
-  // Projection (only for current month)
   const now = new Date()
   const dayOfMonth = now.getDate()
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
@@ -82,11 +79,10 @@ export default function Dashboard() {
     : null
 
   const totalBarColor =
-    totalPct >= 90 ? 'bg-red-500' :
-    totalPct >= 70 ? 'bg-amber-500' :
-    'bg-emerald-500'
+    totalPct >= 90 ? 'bg-brand-red' :
+    totalPct >= 70 ? 'bg-brand-orange' :
+    'bg-brand-green'
 
-  // Pie chart data
   const pieData = Object.entries(spentByCategory)
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
@@ -95,7 +91,6 @@ export default function Dashboard() {
       value: Math.round(amount * 100) / 100,
     }))
 
-  // Bar chart: daily spending
   const dailySpend: Record<number, number> = {}
   for (const exp of expenses) {
     const day = parseInt(exp.date.split('-')[2], 10)
@@ -107,8 +102,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Global gauge with month selector */}
-      <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
+      {/* Header with month selector and full-width progress */}
+      <div className="bg-navy-light rounded-xl p-6 border border-navy-lighter">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <button
@@ -124,7 +119,7 @@ export default function Dashboard() {
                 if (year === currentYear && m > currentMonth) return
                 setMonth(m)
               }}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm font-bold text-white"
+              className="bg-navy border border-navy-lighter rounded-lg px-2 py-1 text-sm font-bold text-white"
             >
               {MONTHS.map((name, i) => (
                 <option key={i} value={i} disabled={year === currentYear && i > currentMonth}>
@@ -139,7 +134,7 @@ export default function Dashboard() {
                 setYear(y)
                 if (y === currentYear && month > currentMonth) setMonth(currentMonth)
               }}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm font-bold text-white"
+              className="bg-navy border border-navy-lighter rounded-lg px-2 py-1 text-sm font-bold text-white"
             >
               {years.map(y => (
                 <option key={y} value={y}>{y}</option>
@@ -163,7 +158,7 @@ export default function Dashboard() {
           <span className="text-3xl font-bold text-white">&euro;{totalSpent.toFixed(0)}</span>
           <span className="text-slate-500 text-sm pb-1">/ &euro;{totalBudget.toFixed(0)}</span>
         </div>
-        <div className="w-full bg-slate-800 rounded-full h-3">
+        <div className="w-full bg-navy rounded-full h-3">
           <div
             className={`h-3 rounded-full transition-all duration-500 ${totalBarColor}`}
             style={{ width: `${Math.min(totalPct, 100)}%` }}
@@ -171,11 +166,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Charts row */}
+      {/* Charts */}
       {pieData.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Pie chart */}
-          <div className="bg-slate-900 rounded-xl p-4 border border-slate-800">
+          <div className="bg-navy-light rounded-xl p-4 border border-navy-lighter">
             <h3 className="text-sm font-semibold text-slate-300 mb-3">Distribucion por categoria</h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -194,7 +188,7 @@ export default function Dashboard() {
                 </Pie>
                 <Tooltip
                   formatter={(value) => [`€${Number(value).toFixed(0)}`, '']}
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#1e2336', border: '1px solid #2a2f45', borderRadius: '8px' }}
                   itemStyle={{ color: '#e2e8f0' }}
                   labelStyle={{ color: '#94a3b8' }}
                 />
@@ -214,15 +208,14 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bar chart */}
-          <div className="bg-slate-900 rounded-xl p-4 border border-slate-800">
+          <div className="bg-navy-light rounded-xl p-4 border border-navy-lighter">
             <h3 className="text-sm font-semibold text-slate-300 mb-3">Gasto diario</h3>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={barData}>
                 <XAxis
                   dataKey="day"
                   tick={{ fill: '#64748b', fontSize: 11 }}
-                  axisLine={{ stroke: '#334155' }}
+                  axisLine={{ stroke: '#2a2f45' }}
                   tickLine={false}
                 />
                 <YAxis
@@ -233,12 +226,12 @@ export default function Dashboard() {
                 />
                 <Tooltip
                   formatter={(value) => [`€${Number(value).toFixed(2)}`, 'Gasto']}
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: '#1e2336', border: '1px solid #2a2f45', borderRadius: '8px' }}
                   itemStyle={{ color: '#e2e8f0' }}
                   labelFormatter={(day) => `Dia ${day}`}
                   labelStyle={{ color: '#94a3b8' }}
                 />
-                <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="amount" fill="#3BB2AC" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -258,12 +251,6 @@ export default function Dashboard() {
             />
           ))
         }
-      </div>
-
-      {/* Recent expenses */}
-      <div className="bg-slate-900 rounded-xl p-4 border border-slate-800">
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Ultimos movimientos</h3>
-        <ExpenseList expenses={expenses.slice(0, 10)} />
       </div>
     </div>
   )

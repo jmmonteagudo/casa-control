@@ -80,14 +80,14 @@ export default function Expenses() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold text-white">Historial de gastos</h2>
+      <h2 className="text-lg font-bold text-white">Movimientos</h2>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <select
           value={category}
           onChange={e => { setCategory(e.target.value); setPage(0) }}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          className="bg-navy border border-navy-lighter rounded-lg px-3 py-2 text-sm text-white"
         >
           {CATEGORIES.map(c => (
             <option key={c.slug} value={c.slug}>{c.label}</option>
@@ -97,19 +97,19 @@ export default function Expenses() {
           type="date"
           value={dateFrom}
           onChange={e => { setDateFrom(e.target.value); setPage(0) }}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          className="bg-navy border border-navy-lighter rounded-lg px-3 py-2 text-sm text-white"
         />
         <input
           type="date"
           value={dateTo}
           onChange={e => { setDateTo(e.target.value); setPage(0) }}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          className="bg-navy border border-navy-lighter rounded-lg px-3 py-2 text-sm text-white"
         />
       </div>
 
       {/* Edit modal */}
       {editing && (
-        <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-3">
+        <div className="bg-navy-light border border-navy-lighter rounded-xl p-4 space-y-3">
           <h3 className="text-sm font-semibold text-slate-300">Editar gasto</h3>
           <p className="text-sm text-slate-400">{editing.description}</p>
           <div className="flex gap-3">
@@ -118,7 +118,7 @@ export default function Expenses() {
               <select
                 value={editing.category_slug}
                 onChange={e => setEditing({ ...editing, category_slug: e.target.value })}
-                className="block bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mt-1"
+                className="block bg-navy border border-navy-lighter rounded-lg px-3 py-2 text-sm text-white mt-1"
               >
                 {CATEGORIES.filter(c => c.slug).map(c => (
                   <option key={c.slug} value={c.slug}>{c.label}</option>
@@ -132,12 +132,12 @@ export default function Expenses() {
                 step="0.01"
                 value={editing.amount_eur}
                 onChange={e => setEditing({ ...editing, amount_eur: parseFloat(e.target.value) || 0 })}
-                className="block bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mt-1 w-28"
+                className="block bg-navy border border-navy-lighter rounded-lg px-3 py-2 text-sm text-white mt-1 w-28"
               />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSaveEdit} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">
+            <button onClick={handleSaveEdit} className="px-3 py-1.5 bg-brand-green hover:bg-brand-green/90 text-white text-sm rounded-lg">
               Guardar
             </button>
             <button onClick={() => handleDelete(editing.id)} className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-sm rounded-lg">
@@ -151,7 +151,7 @@ export default function Expenses() {
       )}
 
       {/* List */}
-      <div className="bg-slate-900 rounded-xl p-4 border border-slate-800">
+      <div className="bg-navy-light rounded-xl p-4 border border-navy-lighter">
         {loading ? (
           <p className="text-slate-500 text-sm text-center py-8">Cargando...</p>
         ) : (
@@ -164,7 +164,7 @@ export default function Expenses() {
         <button
           onClick={() => setPage(p => Math.max(0, p - 1))}
           disabled={page === 0}
-          className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-sm disabled:opacity-30"
+          className="px-3 py-1.5 bg-navy text-slate-300 rounded-lg text-sm disabled:opacity-30"
         >
           Anterior
         </button>
@@ -172,7 +172,7 @@ export default function Expenses() {
         <button
           onClick={() => setPage(p => p + 1)}
           disabled={expenses.length < pageSize}
-          className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-sm disabled:opacity-30"
+          className="px-3 py-1.5 bg-navy text-slate-300 rounded-lg text-sm disabled:opacity-30"
         >
           Siguiente
         </button>

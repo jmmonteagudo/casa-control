@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 const navItems = [
   { to: '/', label: 'Dashboard' },
-  { to: '/gastos', label: 'Gastos' },
+  { to: '/gastos', label: 'Movimientos' },
   { to: '/presupuesto', label: 'Presupuesto' },
 ]
 
@@ -16,11 +16,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <nav className="bg-slate-900 border-b border-slate-800">
+    <div className="min-h-screen bg-navy">
+      <nav className="bg-navy-light border-b border-navy-lighter">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-6">
-            <span className="text-white font-bold text-lg">CasaControl</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">&euro;</span>
+              </div>
+              <span className="text-white font-bold text-lg">CasaControl</span>
+            </div>
             <div className="flex gap-1">
               {navItems.map(item => (
                 <NavLink
@@ -29,8 +34,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   className={({ isActive }) =>
                     `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        ? 'bg-navy-lighter text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-navy-lighter/50'
                     }`
                   }
                 >

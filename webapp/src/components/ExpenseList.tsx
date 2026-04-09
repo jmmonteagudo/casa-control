@@ -17,11 +17,11 @@ export default function ExpenseList({ expenses, onEdit }: Props) {
   }
 
   return (
-    <div className="divide-y divide-slate-800">
+    <div className="divide-y divide-navy-lighter">
       {expenses.map(expense => (
         <div
           key={expense.id}
-          className="flex items-center justify-between py-3 hover:bg-slate-900/50 px-2 rounded-lg cursor-pointer transition-colors"
+          className="flex items-center justify-between py-3 hover:bg-navy-light/50 px-2 rounded-lg cursor-pointer transition-colors"
           onClick={() => onEdit?.(expense)}
         >
           <div className="flex items-center gap-3 min-w-0">
