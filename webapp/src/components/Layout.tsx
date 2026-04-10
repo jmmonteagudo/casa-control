@@ -5,6 +5,7 @@ const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/gastos', label: 'Movimientos' },
   { to: '/presupuesto', label: 'Presupuesto' },
+  { to: '/resumen', label: 'Resumen' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

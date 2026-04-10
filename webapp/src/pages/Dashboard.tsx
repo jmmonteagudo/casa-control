@@ -1,32 +1,21 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Expense, BudgetCategory } from '../lib/supabase'
 import { useMonth } from '../context/MonthContext'
 import CategoryGauge from '../components/CategoryGauge'
+import { CATEGORY_COLORS } from '../lib/categories'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer,
 } from 'recharts'
 
-const CATEGORY_COLORS: Record<string, string> = {
-  vivienda: '#6366f1',
-  super: '#3BB2AC',
-  salud: '#E63944',
-  servicios: '#F8AD55',
-  vacaciones: '#06b6d4',
-  salidas: '#ec4899',
-  casa: '#8b5cf6',
-  transporte: '#3b82f6',
-  ocio: '#14b8a6',
-  ropa: '#d946ef',
-  educacion: '#f97316',
-  otros: '#64748b',
-}
-
 export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [budgets, setBudgets] = useState<BudgetCategory[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const navigate = useNavigate()
   const { monthStart, monthEnd, isCurrentMonth, prevMonth, nextMonth, year, month, setYear, setMonth } = useMonth()
 
   const MONTHS = [
@@ -54,6 +43,11 @@ export default function Dashboard() {
       setBudgets(budRes.data || [])
       setLoading(false)
     })
+    supabase
+      .from('expenses')
+      .select('id', { count: 'exact', head: true })
+      .eq('needs_review', true)
+      .then(({ count }) => setPendingCount(count || 0))
   }, [monthStart, monthEnd])
 
   if (loading) {
@@ -102,6 +96,19 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Pending review alert */}
+      {pendingCount > 0 && (
+        <button
+          onClick={() => navigate('/gastos?pending=true')}
+          className="w-full bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between hover:bg-amber-500/20 transition-colors"
+        >
+          <span className="text-sm text-amber-300 font-medium">
+            {pendingCount} {pendingCount === 1 ? 'gasto sin clasificar' : 'gastos sin clasificar'}
+          </span>
+          <span className="text-xs text-amber-400">Revisar &rarr;</span>
+        </button>
+      )}
+
       {/* Header with month selector and full-width progress */}
       <div className="bg-navy-light rounded-xl p-6 border border-navy-lighter">
         <div className="flex items-center justify-between mb-1">

@@ -15,22 +15,27 @@ GROUP_CHAT_ID = int(os.environ.get("GROUP_CHAT_ID", "0")) or None
 # ── Category slugs ────────────────────────────────────────────────────────────
 CATEGORY_SLUGS = [
     "vivienda", "super", "salud", "servicios", "vacaciones",
-    "salidas", "casa", "transporte", "ocio", "ropa", "educacion", "otros",
+    "salidas", "casa", "transporte", "ocio", "ropa", "educacion",
+    "otros", "impuestos", "deportes", "coche", "sin_clasificar",
 ]
 
 CATEGORY_LABELS = {
-    "vivienda":   "🏡 Vivienda",
-    "super":      "🛒 Supermercado",
-    "salud":      "🏥 Salud",
-    "servicios":  "💡 Servicios",
-    "vacaciones": "✈️ Vacaciones",
-    "salidas":    "🍽️ Salidas",
-    "casa":       "🏠 Casa/Hogar",
-    "transporte": "🚗 Transporte",
-    "ocio":       "🎈 Ocio/Kids",
-    "ropa":       "👗 Ropa",
-    "educacion":  "📚 Educación",
-    "otros":      "📦 Otros",
+    "vivienda":       "🏡 Vivienda",
+    "super":          "🛒 Supermercado",
+    "salud":          "🏥 Salud",
+    "servicios":      "💡 Servicios",
+    "vacaciones":     "✈️ Vacaciones",
+    "salidas":        "🍽️ Salidas",
+    "casa":           "🏠 Casa/Hogar",
+    "transporte":     "🚇 Transporte",
+    "ocio":           "🎈 Ocio/Kids",
+    "ropa":           "👗 Ropa",
+    "educacion":      "📚 Educación",
+    "otros":          "📦 Otros",
+    "impuestos":      "🏛️ Impuestos",
+    "deportes":       "🏋️ Deportes",
+    "coche":          "🚘 Coche",
+    "sin_clasificar": "❓ Sin clasificar",
 }
 
 # ── Groq settings ─────────────────────────────────────────────────────────────

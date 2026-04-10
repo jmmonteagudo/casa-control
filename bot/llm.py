@@ -60,10 +60,10 @@ async def classify_and_process(text: str) -> dict:
       - For expense: data dict with description, amount_eur, etc.
       - For query/off_topic: response string
     """
-    system = f"""You are CasaControl, a family expense assistant for Martin and Romina in Madrid.
+    system = f"""You are CasaControl, a family expense assistant.
 Classify the user message into one of three intents and respond with ONLY valid JSON (no markdown, no extra text):
 
-1. EXPENSE — the message describes a purchase or expense.
+1. EXPENSE — the message describes a purchase, payment, or expense.
    Return: {{"intent": "expense", "data": {{
      "description": "short expense name",
      "amount_eur": number or null,
@@ -73,14 +73,33 @@ Classify the user message into one of three intents and respond with ONLY valid 
      "date": "YYYY-MM-DD, today ({date.today().isoformat()}) if not mentioned"
    }}}}
 
-2. ANYTHING ELSE — any question, comment, or conversation (about finances, general knowledge, weather, whatever).
+2. ANYTHING ELSE — any question, comment, or conversation.
    You are a helpful assistant that can talk about any topic. Always respond in Spanish with a natural, friendly tone.
    Return: {{"intent": "query", "response": "your helpful answer in Spanish"}}
 
-Context clues for categories: alquiler→vivienda, luz/gas/internet/móvil→servicios, médico/farmacia/mapfre→salud,
-mercadona/aldi/lidl/costco/frutería/makro→super, restaurante/bar/cafetería→salidas,
-taxi/uber/metro/bus→transporte, cole/guardería→educacion, ropa/zapatos→ropa.
-If the expense doesn't clearly fit any category, use 'otros'."""
+Category classification rules:
+- vivienda: rent, mortgage, property taxes, home insurance
+- super: supermarkets, grocery stores, food markets, butchers, bakeries
+- salud: pharmacy, hospital, clinic, dentist, optician, health insurance
+- servicios: electricity, gas, water, internet, phone, streaming subscriptions (Netflix, Spotify, etc.), SaaS
+- vacaciones: flights, hotels, Airbnb, car rentals for travel, camping
+- salidas: restaurants, bars, cafes, fast food, takeout, food delivery
+- casa: furniture, home improvement, hardware stores, cleaning supplies, pet supplies, home services
+- transporte: public transit (metro, bus, train), taxis, ride-hailing (Uber, Cabify), car sharing (Zity, Voltio)
+- ocio: cinema, theatre, concerts, events, amusement parks, toys, games
+- ropa: clothing, shoes, accessories, fashion stores
+- educacion: school fees, tuition, daycare, extracurriculars, language classes
+- impuestos: tax payments, government fees, municipal taxes, fines
+- deportes: gym, yoga, swimming, sports clubs, fitness memberships
+- coche: fuel, car wash, parking, tolls, car insurance, ITV/MOT, car maintenance
+- sin_clasificar: ATM withdrawals, marketplace purchases (Wallapop, Temu, AliExpress, Shein) where the product is unknown, any expense you cannot confidently classify
+- otros: anything that doesn't fit the above categories but IS clearly identifiable
+
+Special patterns:
+- "[Name] [amount]" or "[Name] €[amount]" (e.g. "Ana 60", "Carlos €30") = cash payment to a person. Set payment_method to "efectivo" and classify as "sin_clasificar" so the system asks the user for the correct category.
+- ATM/cash withdrawals → sin_clasificar
+
+IMPORTANT: If you are unsure about the category, use "sin_clasificar" rather than guessing wrong."""
 
     response = await call_llm(text, system=system)
     return _parse_json(response)
@@ -89,7 +108,7 @@ If the expense doesn't clearly fit any category, use 'otros'."""
 async def extract_expense_from_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
     b64 = base64.standard_b64encode(image_bytes).decode()
 
-    system = f"""You are the ticket OCR parser for CasaControl, a family budget app in Madrid.
+    system = f"""You are the ticket OCR parser for CasaControl, a family budget app.
 Analyse the receipt image and extract all relevant expense data.
 Return ONLY valid JSON (no markdown) with:
   description    (string — store name + brief summary, e.g. "Mercadona — compra semanal")
@@ -98,7 +117,11 @@ Return ONLY valid JSON (no markdown) with:
   store          (string — store name)
   payment_method (string or null)
   date           (YYYY-MM-DD from the ticket, or today {date.today().isoformat()} if not visible)
-  items          (array of {{name, quantity, unit_price, total_price}} — line items if legible, else [])"""
+  items          (array of {{name, quantity, unit_price, total_price}} — line items if legible, else [])
+
+Category rules: supermarkets/grocery→super, restaurants/bars→salidas, pharmacy→salud,
+clothing→ropa, fuel/parking→coche, hardware/furniture→casa, sports/gym→deportes.
+If unsure, use "sin_clasificar".""""""
 
     payload = {
         "model": GROQ_VISION_MODEL,
@@ -157,21 +180,27 @@ async def classify_bank_transactions_batch(transactions: list[dict]) -> list[dic
     Input: list of {description: str, amount: float, date: str}
     Output: list of {description, amount_eur, category_slug, store, payment_method, date}
     """
-    system = f"""You are CasaControl, a family expense classifier for Martin and Romina in Madrid, Spain.
+    system = f"""You are CasaControl, a family expense classifier.
 Classify each bank transaction into an expense category.
 
 For each transaction, return:
-- description: short, clean description in Spanish (e.g. "Compra Mercadona")
+- description: short, clean description (e.g. "Compra Mercadona")
 - amount_eur: the amount (positive number)
 - category_slug: one of: {', '.join(CATEGORY_SLUGS)}
 - store: merchant name, cleaned up (e.g. "MERCADONA S.A." → "Mercadona")
 - payment_method: one of: tarjeta, transferencia, domiciliacion, cajero, bizum, or null
 - date: the transaction date (YYYY-MM-DD)
 
-Context clues: alquiler→vivienda, luz/gas/internet/movil→servicios, medico/farmacia→salud,
-mercadona/aldi/lidl/carrefour→super, restaurante/bar→salidas, taxi/uber/metro→transporte,
-cole/guarderia→educacion, ropa/zapatos→ropa, netflix/spotify→ocio, ikea/leroy merlin→casa.
-If a transaction doesn't clearly fit any category, use 'otros'.
+Category rules:
+- vivienda: rent, mortgage. super: supermarkets, groceries. salud: pharmacy, health.
+- servicios: utilities, telecom, subscriptions. vacaciones: travel, hotels, flights.
+- salidas: restaurants, bars, delivery. casa: furniture, hardware, home services.
+- transporte: public transit, taxis, ride-hailing. ocio: entertainment, events, cinema.
+- ropa: clothing, fashion. educacion: school, tuition, daycare.
+- impuestos: tax payments, government fees. deportes: gym, yoga, sports.
+- coche: fuel, parking, tolls, car maintenance, car insurance.
+- sin_clasificar: ATM withdrawals, marketplace purchases where product is unknown.
+- otros: identifiable expenses that don't fit elsewhere.
 
 Respond with ONLY a valid JSON array. No markdown, no extra text."""
 

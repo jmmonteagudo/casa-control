@@ -29,6 +29,8 @@ from db import (
     supabase, resolve_user_id, save_expense, save_ticket,
     upload_photo_to_storage, check_duplicate,
     get_monthly_expenses, get_budget_categories,
+    get_pending_review_count, get_pending_review_expenses,
+    get_recurring_expenses, save_recurring_expense, deactivate_recurring_expense,
 )
 from formatters import (
     format_confirmation, build_edit_keyboard,
@@ -76,6 +78,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Comandos:\n"
         "/resumen — gastos del mes actual\n"
         "/presupuesto — estado vs. presupuesto\n"
+        "/pendientes — gastos sin clasificar\n"
+        "/recurrentes — gastos fijos mensuales\n"
+        "/recurrente — agregar gasto fijo\n"
         "/myid — tu chat\\_id (para Shortcuts iOS)\n\n"
         "Tambien podes enviar un CSV bancario para importar gastos.",
         parse_mode="Markdown",
@@ -113,6 +118,9 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if slug in totals:
             lines.append(f"{label}: *€{totals[slug]:.2f}*")
     lines.append(f"\n💶 *Total: €{grand_total:.2f}*")
+    pending = get_pending_review_count()
+    if pending > 0:
+        lines.append(f"\n⚠️ Tenes {pending} gastos pendientes de clasificar. /pendientes")
     await msg.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
@@ -145,6 +153,144 @@ async def cmd_presupuesto(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         total_spent += s
     lines.append(f"\n💶 *Total: €{total_spent:.0f} / €{total_budget:.0f}*")
     await msg.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def cmd_pendientes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_allowed(update):
+        return
+    msg = get_message(update)
+    if not msg:
+        return
+    expenses = get_pending_review_expenses(limit=10)
+    if not expenses:
+        await msg.reply_text("✅ No hay gastos pendientes de clasificar.")
+        return
+    total = get_pending_review_count()
+    lines = [f"⚠️ *{total} gastos sin clasificar* (mostrando {len(expenses)}):\n"]
+    for exp in expenses:
+        amt = float(exp["amount_eur"])
+        desc = exp.get("description", "—")
+        store = exp.get("store") or ""
+        dt = exp.get("date", "")
+        lines.append(f"• {desc} — *€{amt:.2f}* ({dt})")
+    lines.append("\nPodes reclasificarlos desde la webapp en Movimientos > Sin clasificar")
+    await msg.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def cmd_recurrente(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Add a recurring expense: /recurrente Seguro salud 85 salud"""
+    if not is_allowed(update):
+        return
+    msg = get_message(update)
+    if not msg:
+        return
+    text = msg.text.strip()
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip():
+        await msg.reply_text(
+            "Uso: `/recurrente Descripcion MONTO CATEGORIA [DIA]`\n"
+            "Ej: `/recurrente Seguro salud 85 salud`\n"
+            "Ej: `/recurrente Alquiler 1430 vivienda 1`",
+            parse_mode="Markdown",
+        )
+        return
+
+    args = parts[1].strip()
+    # Parse from the end: optional day, required category, required amount, rest is description
+    tokens = args.split()
+    if len(tokens) < 3:
+        await msg.reply_text("⚠️ Necesito al menos: descripcion, monto y categoria.")
+        return
+
+    # Check if last token is a day number
+    day_of_month = 1
+    if tokens[-1].isdigit() and 1 <= int(tokens[-1]) <= 31:
+        day_of_month = int(tokens.pop())
+
+    category_slug = tokens.pop().lower()
+    if category_slug not in [s for s in CATEGORY_LABELS.keys()]:
+        await msg.reply_text(
+            f"⚠️ Categoria '{category_slug}' no existe.\n"
+            f"Categorias validas: {', '.join(CATEGORY_LABELS.keys())}"
+        )
+        return
+
+    # Amount is the last remaining numeric token
+    amount_str = tokens.pop()
+    try:
+        amount = float(amount_str.replace(",", ".").replace("€", ""))
+    except ValueError:
+        await msg.reply_text("⚠️ No entendi el monto. Usa numeros, ej: 85 o 85.50")
+        return
+
+    description = " ".join(tokens).strip()
+    if not description:
+        await msg.reply_text("⚠️ Falta la descripcion.")
+        return
+
+    data = {
+        "description": description,
+        "amount_eur": amount,
+        "category_slug": category_slug,
+        "day_of_month": day_of_month,
+    }
+    rec = save_recurring_expense(data)
+    label = CATEGORY_LABELS.get(category_slug, category_slug)
+    await msg.reply_text(
+        f"✅ *Gasto recurrente creado*\n\n"
+        f"📝 {description}\n"
+        f"💶 *€{amount:.2f}*\n"
+        f"🏷️ {label}\n"
+        f"📅 Dia {day_of_month} de cada mes\n\n"
+        f"_ID: {rec['id'][:8]}…_",
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_recurrentes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_allowed(update):
+        return
+    msg = get_message(update)
+    if not msg:
+        return
+    recurrentes = get_recurring_expenses()
+    if not recurrentes:
+        await msg.reply_text("No hay gastos recurrentes activos.")
+        return
+    lines = ["📋 *Gastos recurrentes activos:*\n"]
+    total = 0.0
+    for r in recurrentes:
+        amt = float(r["amount_eur"])
+        total += amt
+        label = CATEGORY_LABELS.get(r["category_slug"], r["category_slug"])
+        lines.append(f"• {r['description']} — *€{amt:.2f}* {label} (dia {r.get('day_of_month', 1)})")
+        lines.append(f"  _/borrar\\_recurrente {r['id'][:8]}_")
+    lines.append(f"\n💶 *Total fijo mensual: €{total:.2f}*")
+    await msg.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def cmd_borrar_recurrente(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_allowed(update):
+        return
+    msg = get_message(update)
+    if not msg:
+        return
+    parts = msg.text.strip().split()
+    if len(parts) < 2:
+        await msg.reply_text("Uso: `/borrar_recurrente ID`", parse_mode="Markdown")
+        return
+    partial_id = parts[1]
+    # Find the full ID from partial
+    recurrentes = get_recurring_expenses()
+    match = [r for r in recurrentes if r["id"].startswith(partial_id)]
+    if not match:
+        await msg.reply_text("⚠️ No encontre un gasto recurrente con ese ID.")
+        return
+    rec = match[0]
+    if deactivate_recurring_expense(rec["id"]):
+        await msg.reply_text(f"✅ Gasto recurrente desactivado: {rec['description']}")
+    else:
+        await msg.reply_text("⚠️ Error desactivando el gasto recurrente.")
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -187,10 +333,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await msg.reply_text("👍 Perfecto, gasto registrado sin ticket.")
         return
 
-    # Detect [shortcut] prefix from iOS Shortcut
-    from_shortcut = text.startswith("[shortcut]")
+    # Detect shortcut prefixes from iOS Shortcut
+    from_shortcut = text.startswith("[shortcut]") or text.startswith("[Apple Pay]")
     if from_shortcut:
-        text = text.removeprefix("[shortcut]").strip()
+        text = re.sub(r"^\[(?:shortcut|Apple Pay)\]\s*", "", text)
 
     processing = await msg.reply_text("⏳ Procesando…")
 
@@ -271,6 +417,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             confirmation + "\n\n🧾 *¿Tenés foto del ticket?*",
             parse_mode="Markdown",
             reply_markup=build_ticket_prompt_keyboard(expense["id"]),
+        )
+    elif data.get("category_slug") == "sin_clasificar":
+        # Show category keyboard so user can reclassify immediately
+        buttons = [
+            [InlineKeyboardButton(label, callback_data=f"setcat:{expense['id']}:{slug}")]
+            for slug, label in CATEGORY_LABELS.items()
+            if slug != "sin_clasificar"
+        ]
+        await processing.edit_text(
+            confirmation + "\n\n❓ *¿A qué categoria pertenece?*",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(buttons),
         )
     else:
         await processing.edit_text(
@@ -453,7 +611,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif action == "setcat":
         _, eid, new_slug = data_str.split(":", 2)
         try:
-            supabase.table("expenses").update({"category_slug": new_slug}).eq("id", eid).execute()
+            supabase.table("expenses").update({"category_slug": new_slug, "needs_review": False}).eq("id", eid).execute()
             await query.edit_message_text(
                 f"✅ Categoría actualizada a {CATEGORY_LABELS.get(new_slug, new_slug)}"
             )
@@ -536,6 +694,10 @@ def main() -> None:
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("presupuesto", cmd_presupuesto))
+    app.add_handler(CommandHandler("pendientes", cmd_pendientes))
+    app.add_handler(CommandHandler("recurrente", cmd_recurrente))
+    app.add_handler(CommandHandler("recurrentes", cmd_recurrentes))
+    app.add_handler(CommandHandler("borrar_recurrente", cmd_borrar_recurrente))
 
     # CSV import handler
     from banking import handle_document

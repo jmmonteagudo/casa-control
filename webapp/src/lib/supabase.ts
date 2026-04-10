@@ -16,6 +16,8 @@ export type Expense = {
   source: string
   user_id: string | null
   ticket_id: string | null
+  needs_review: boolean
+  notes: string | null
   created_at: string
 }
 

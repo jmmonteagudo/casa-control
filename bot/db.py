@@ -23,16 +23,20 @@ def resolve_user_id(telegram_id: int) -> Optional[str]:
 
 
 def save_expense(data: dict, user_id: Optional[str], source: str = "telegram") -> dict:
+    category = data.get("category_slug", "otros")
     row = {
         "date":           data.get("date") or date.today().isoformat(),
         "description":    data.get("description", "Gasto sin descripción"),
         "amount_eur":     data.get("amount_eur"),
-        "category_slug":  data.get("category_slug", "otros"),
+        "category_slug":  category,
         "payment_method": data.get("payment_method"),
         "store":          data.get("store"),
         "source":         source,
         "user_id":        user_id,
+        "needs_review":   data.get("needs_review", category == "sin_clasificar"),
     }
+    if data.get("bank_ref"):
+        row["bank_ref"] = data["bank_ref"]
     result = supabase.table("expenses").insert(row).execute()
     return result.data[0]
 
@@ -125,3 +129,74 @@ def get_monthly_expenses(month_start: str) -> list[dict]:
 def get_budget_categories() -> list[dict]:
     result = supabase.table("budget_categories").select("slug, label, budget_eur").execute()
     return result.data
+
+
+def get_pending_review_count() -> int:
+    result = supabase.table("expenses").select("id", count="exact").eq("needs_review", True).execute()
+    return result.count or 0
+
+
+def get_pending_review_expenses(limit: int = 10) -> list[dict]:
+    result = (
+        supabase.table("expenses")
+        .select("id, date, description, amount_eur, category_slug, store")
+        .eq("needs_review", True)
+        .order("date", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+def get_frequent_contact(name: str) -> Optional[dict]:
+    result = (
+        supabase.table("frequent_contacts")
+        .select("*")
+        .ilike("name", name)
+        .maybe_single()
+        .execute()
+    )
+    return result.data
+
+
+def save_frequent_contact(name: str, category_slug: str, store_label: str = None) -> dict:
+    row = {
+        "name": name,
+        "category_slug": category_slug,
+        "store_label": store_label or name,
+    }
+    result = supabase.table("frequent_contacts").upsert(row, on_conflict="name").execute()
+    return result.data[0]
+
+
+def get_recurring_expenses() -> list[dict]:
+    result = (
+        supabase.table("recurring_expenses")
+        .select("*")
+        .eq("active", True)
+        .order("category_slug")
+        .execute()
+    )
+    return result.data
+
+
+def save_recurring_expense(data: dict) -> dict:
+    row = {
+        "description":   data["description"],
+        "amount_eur":    data["amount_eur"],
+        "category_slug": data["category_slug"],
+        "store":         data.get("store"),
+        "day_of_month":  data.get("day_of_month", 1),
+    }
+    result = supabase.table("recurring_expenses").insert(row).execute()
+    return result.data[0]
+
+
+def deactivate_recurring_expense(expense_id: str) -> bool:
+    result = (
+        supabase.table("recurring_expenses")
+        .update({"active": False})
+        .eq("id", expense_id)
+        .execute()
+    )
+    return len(result.data) > 0

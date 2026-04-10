@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Budget from './pages/Budget'
+import Overview from './pages/Overview'
 import Login from './pages/Login'
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/gastos" element={<Expenses />} />
           <Route path="/presupuesto" element={<Budget />} />
+          <Route path="/resumen" element={<Overview />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

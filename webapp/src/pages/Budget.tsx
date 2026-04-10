@@ -2,12 +2,14 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { BudgetCategory } from '../lib/supabase'
 import { useMonth } from '../context/MonthContext'
+import { CATEGORY_ICONS } from '../lib/categories'
 
 export default function Budget() {
   const [budgets, setBudgets] = useState<BudgetCategory[]>([])
   const [originalBudgets, setOriginalBudgets] = useState<Record<string, number>>({})
   const [editedValues, setEditedValues] = useState<Record<string, number>>({})
   const [spent, setSpent] = useState<Record<string, number>>({})
+  const [recurring, setRecurring] = useState<{ id: string; description: string; amount_eur: number; category_slug: string; day_of_month: number; active: boolean }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newSlug, setNewSlug] = useState('')
@@ -22,7 +24,8 @@ export default function Budget() {
     Promise.all([
       supabase.from('budget_categories').select('*'),
       supabase.from('expenses').select('category_slug, amount_eur').gte('date', monthStart).lte('date', monthEnd),
-    ]).then(([budRes, expRes]) => {
+      supabase.from('recurring_expenses').select('*').eq('active', true).order('category_slug'),
+    ]).then(([budRes, expRes, recRes]) => {
       const b = budRes.data || []
       setBudgets(b)
       const orig: Record<string, number> = {}
@@ -35,6 +38,7 @@ export default function Budget() {
         s[slug] = (s[slug] || 0) + row.amount_eur
       }
       setSpent(s)
+      setRecurring(recRes.data || [])
       setLoading(false)
     })
   }, [monthStart, monthEnd])
@@ -94,11 +98,7 @@ export default function Budget() {
     return <p className="text-slate-500 text-center py-12">Cargando presupuestos...</p>
   }
 
-  const ICONS: Record<string, string> = {
-    vivienda: '🏡', super: '🛒', salud: '🏥', servicios: '💡',
-    vacaciones: '✈️', salidas: '🍽️', casa: '🏠', transporte: '🚗',
-    ocio: '🎈', ropa: '👗', educacion: '📚', otros: '📦',
-  }
+  const ICONS = CATEGORY_ICONS
 
   return (
     <div className="space-y-4">
@@ -236,6 +236,31 @@ export default function Budget() {
       </div>
       {!isCurrentMonth && (
         <p className="text-xs text-slate-500 text-center">Los presupuestos solo se pueden editar en el mes actual</p>
+      )}
+
+      {/* Recurring / fixed expenses */}
+      {recurring.length > 0 && (
+        <div className="bg-navy-light rounded-xl border border-navy-lighter p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-300">Gastos fijos mensuales</h3>
+          <div className="divide-y divide-navy-lighter">
+            {recurring.map(r => (
+              <div key={r.id} className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{ICONS[r.category_slug] || '📦'}</span>
+                  <span className="text-sm text-slate-200">{r.description}</span>
+                  <span className="text-xs text-slate-500">dia {r.day_of_month}</span>
+                </div>
+                <span className="text-sm font-medium text-white">&euro;{Number(r.amount_eur).toFixed(0)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between pt-2 border-t border-navy-lighter">
+            <span className="text-sm text-slate-400">Total fijo mensual</span>
+            <span className="text-sm font-bold text-white">
+              &euro;{recurring.reduce((s, r) => s + Number(r.amount_eur), 0).toFixed(0)}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   )

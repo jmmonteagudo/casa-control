@@ -21,26 +21,47 @@ Sistema de gestión financiera familiar para Martin y Romina (Madrid).
 casa-control/
 ├── CLAUDE.md
 ├── docs/              # Documentación del proyecto
+│   ├── init.sql       # SQL para inicializar la DB desde cero
+│   ├── setup-guide.md # Guía completa de setup para nuevos usuarios
+│   └── ...
 ├── bot/               # Bot de Telegram (Python) — deploy Railway
 │   ├── bot.py         # Launcher (Procfile ejecuta este)
 │   ├── main.py        # Handlers + main()
 │   ├── config.py      # Env vars, categorías, constantes
 │   ├── llm.py         # Llamadas a Groq (texto, visión, audio)
 │   ├── db.py          # Operaciones Supabase
+│   ├── banking.py     # Import de extractos bancarios (CSV)
 │   ├── formatters.py  # Formateo de mensajes y teclados
 │   ├── Procfile       # Railway worker
 │   └── requirements.txt
 └── webapp/            # App web React (PWA) — deploy Vercel
+    └── src/
+        ├── lib/
+        │   ├── categories.ts  # Fuente única de categorías (colores, iconos, labels)
+        │   └── supabase.ts    # Cliente Supabase + tipos
+        ├── pages/
+        │   ├── Dashboard.tsx  # Vista mensual con pie chart y barras
+        │   ├── Expenses.tsx   # Lista de movimientos con filtros y edición
+        │   ├── Budget.tsx     # Presupuesto + gastos fijos recurrentes
+        │   └── Overview.tsx   # Dashboard histórico (todos los meses)
+        └── components/
 ```
 
 ## Base de datos
 
-Tablas en inglés: `expenses`, `tickets`, `ticket_items`, `budget_categories`, `users`.
-Ver esquema completo en `docs/database.md`.
+Tablas en inglés: `expenses`, `tickets`, `ticket_items`, `budget_categories`, `users`, `recurring_expenses`, `frequent_contacts`.
+Ver esquema completo en `docs/database.md` y `docs/init.sql`.
 
-## Categorías de gastos
+## Categorías de gastos (16 total)
 
-`vivienda`, `super`, `salud`, `servicios`, `vacaciones`, `salidas`, `casa`, `transporte`, `ocio`, `ropa`, `educacion`
+`vivienda`, `super`, `salud`, `servicios`, `vacaciones`, `salidas`, `casa`, `transporte`, `ocio`, `ropa`, `educacion`, `impuestos`, `deportes`, `coche`, `sin_clasificar`, `otros`
+
+- `transporte` = transporte publico y ride-hailing (metro, bus, Cabify, Uber)
+- `coche` = combustible, parking, peajes, ITV, seguro coche, lavado
+- `deportes` = gym, yoga, natacion, padel, fitness
+- `impuestos` = AEAT, hacienda, tasas municipales
+- `sin_clasificar` = cajero, marketplace generico, pagos a personas sin categoria conocida
+- Fuente unica de verdad: `webapp/src/lib/categories.ts` (webapp) y `bot/config.py` (bot)
 
 ## Convenciones
 
@@ -125,14 +146,16 @@ Apple Pay → trigger Cartera → Shortcut automático:
 |---|---|
 | Mercadona, Lidl, Carrefour, Aldi, Dia, Alcampo, BM, Ahorramas | super |
 | Farmacia, Hospital, Clínica, Dentista, Óptica | salud |
-| Renfe, Metro, Cabify, Uber, Gasolina, BP, Repsol | transporte |
+| Renfe, Metro, Cabify, Uber, Bolt | transporte |
+| Gasolina, BP, Repsol, Cepsa, Shell, Parking | coche |
 | Zara, H&M, Primark, Mango, Nike | ropa |
 | Bar, Restaurante, Café, Burger, Pizza, McDonald | salidas |
 | Netflix, Spotify, Amazon, Steam, Cine | ocio |
 | Ikea, Leroy Merlin, Bricomart, Ferretería | casa |
 | Vodafone, Movistar, Orange, Endesa, Iberdrola, Naturgy, Agua | servicios |
 | Booking, Airbnb, Vueling, Ryanair, Hotel | vacaciones |
-| Default (no match) | super |
+| Gym, Basic-Fit, Yoga, Padel, Natacion | deportes |
+| Default (no match) | sin_clasificar |
 
 ### Esquema de la tabla expenses (para referencia en Shortcut)
 
@@ -141,7 +164,7 @@ Apple Pay → trigger Cartera → Shortcut automático:
 date           -- formato: "YYYY-MM-DD"
 description    -- texto libre, ej: "Mercadona compra semanal"
 amount_eur     -- número decimal, ej: 45.30
-category_slug  -- uno de: vivienda, super, salud, servicios, vacaciones, salidas, casa, transporte, ocio, ropa, educacion
+category_slug  -- uno de: vivienda, super, salud, servicios, vacaciones, salidas, casa, transporte, ocio, ropa, educacion, impuestos, deportes, coche, sin_clasificar, otros
 -- Campos opcionales:
 store          -- nombre del comercio
 source         -- "shortcut" para identificar origen

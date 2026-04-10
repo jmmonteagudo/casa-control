@@ -1,10 +1,5 @@
 import type { Expense } from '../lib/supabase'
-
-const CATEGORY_ICONS: Record<string, string> = {
-  vivienda: '🏡', super: '🛒', salud: '🏥', servicios: '💡',
-  vacaciones: '✈️', salidas: '🍽️', casa: '🏠', transporte: '🚗',
-  ocio: '🎈', ropa: '👗', educacion: '📚', otros: '📦',
-}
+import { CATEGORY_ICONS } from '../lib/categories'
 
 type Props = {
   expenses: Expense[]

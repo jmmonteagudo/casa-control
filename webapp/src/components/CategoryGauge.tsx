@@ -1,17 +1,4 @@
-const CATEGORY_LABELS: Record<string, { icon: string; label: string }> = {
-  vivienda:   { icon: '🏡', label: 'Vivienda' },
-  super:      { icon: '🛒', label: 'Supermercado' },
-  salud:      { icon: '🏥', label: 'Salud' },
-  servicios:  { icon: '💡', label: 'Servicios' },
-  vacaciones: { icon: '✈️', label: 'Vacaciones' },
-  salidas:    { icon: '🍽️', label: 'Salidas' },
-  casa:       { icon: '🏠', label: 'Casa/Hogar' },
-  transporte: { icon: '🚗', label: 'Transporte' },
-  ocio:       { icon: '🎈', label: 'Ocio/Kids' },
-  ropa:       { icon: '👗', label: 'Ropa' },
-  educacion:  { icon: '📚', label: 'Educacion' },
-  otros:      { icon: '📦', label: 'Otros' },
-}
+import { CATEGORY_MAP } from '../lib/categories'
 
 type Props = {
   slug: string
@@ -21,7 +8,8 @@ type Props = {
 
 export default function CategoryGauge({ slug, spent, budget }: Props) {
   const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
-  const cat = CATEGORY_LABELS[slug] || { icon: '📦', label: slug }
+  const meta = CATEGORY_MAP[slug]
+  const cat = meta ? { icon: meta.icon, label: meta.label } : { icon: '📦', label: slug }
 
   const barColor =
     pct >= 90 ? 'bg-brand-red' :
